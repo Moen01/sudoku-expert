@@ -34,11 +34,11 @@ function borderStyle(index: number): CSSProperties {
 }
 
 function backgroundFor(props: CellProps): string {
+  // Hardcore mode: no row/column/box or matching-number assistance. Only the
+  // selected cell, hint highlights, and rule conflicts are shown.
   if (props.isConflict || props.isWrong) return 'var(--cell-wrong-bg)';
   if (props.isSelected) return 'var(--cell-selected)';
   if (props.isHintReason || props.isHintTarget) return 'var(--cell-highlight-digit)';
-  if (props.isSameValue && props.value !== 0) return 'var(--cell-same)';
-  if (props.isPeer) return 'var(--cell-peer)';
   return 'transparent';
 }
 
@@ -57,8 +57,10 @@ function CellComponent(props: CellProps) {
       type="button"
       aria-label={`Cell ${Math.floor(index / SIZE) + 1},${(index % SIZE) + 1}`}
       onClick={() => onSelect(index)}
-      className="relative flex items-center justify-center aspect-square select-none"
+      className="relative flex h-full w-full select-none items-center justify-center overflow-hidden"
       style={{
+        minWidth: 0,
+        minHeight: 0,
         ...borderStyle(index),
         background: backgroundFor(props),
         color: textColorFor(props),

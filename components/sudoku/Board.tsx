@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { CELL_COUNT } from '@/lib/sudoku/constants';
-import { getConflicts, getHighlight, getWrongCells } from '@/lib/game/selectors';
+import { getConflicts, getWrongCells } from '@/lib/game/selectors';
 import type { GameState } from '@/lib/game/state';
 import { Cell } from './Cell';
 
@@ -14,28 +14,26 @@ interface BoardProps {
 }
 
 export function Board({ state, hintReason, hintTarget, onSelect }: BoardProps) {
-  const { highlight, conflicts, wrong } = useMemo(
+  const { conflicts, wrong } = useMemo(
     () => ({
-      highlight: getHighlight(state),
       conflicts: getConflicts(state),
       wrong: getWrongCells(state),
     }),
     [state],
   );
 
-  const selectedValue = highlight.selectedValue;
-
   return (
     <div
       className="mx-auto w-full"
-      style={{ maxWidth: 'min(92vw, 460px)' }}
+      style={{ maxWidth: 'min(92vw, 56vh, 460px)' }}
       role="grid"
       aria-label="Sudoku board"
     >
       <div
         className="grid aspect-square w-full overflow-hidden rounded-md"
         style={{
-          gridTemplateColumns: 'repeat(9, 1fr)',
+          gridTemplateColumns: 'repeat(9, minmax(0, 1fr))',
+          gridTemplateRows: 'repeat(9, minmax(0, 1fr))',
           background: 'var(--board-bg)',
         }}
       >
@@ -49,8 +47,8 @@ export function Board({ state, hintReason, hintTarget, onSelect }: BoardProps) {
               given={state.givens[index] !== 0}
               notesMask={state.notes[index]}
               isSelected={state.selected === index}
-              isPeer={highlight.peers.has(index)}
-              isSameValue={selectedValue !== 0 && value === selectedValue}
+              isPeer={false}
+              isSameValue={false}
               isWrong={wrong.has(index)}
               isConflict={conflicts.has(index)}
               isHintReason={hintReason.has(index)}
