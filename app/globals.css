@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+
+  /* Light theme (default) */
+  --page-bg: #eef2f7;
+  --surface: #ffffff;
+  --surface-2: #f3f6fb;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #4f46e5;
+  --accent-soft: #e0e7ff;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --ok: #16a34a;
+
+  --board-bg: #ffffff;
+  --board-line: #cbd5e1;
+  --board-thick: #334155;
+
+  --cell-given: #0f172a;
+  --cell-user: #4f46e5;
+  --cell-selected: #c7d2fe;
+  --cell-peer: #eef2ff;
+  --cell-same: #a5b4fc;
+  --cell-highlight-digit: #c7d2fe;
+  --cell-wrong-bg: #fee2e2;
+  --cell-wrong-text: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #0b1120;
+    --surface: #111827;
+    --surface-2: #0f1626;
+    --text: #e5e7eb;
+    --text-muted: #94a3b8;
+    --accent: #818cf8;
+    --accent-soft: #1e1b4b;
+    --danger: #f87171;
+    --danger-soft: #3f1d1d;
+    --ok: #4ade80;
+
+    --board-bg: #0f172a;
+    --board-line: #273349;
+    --board-thick: #64748b;
+
+    --cell-given: #e2e8f0;
+    --cell-user: #a5b4fc;
+    --cell-selected: #3730a3;
+    --cell-peer: #1e293b;
+    --cell-same: #4338ca;
+    --cell-highlight-digit: #312e81;
+    --cell-wrong-bg: #450a0a;
+    --cell-wrong-text: #fca5a5;
+  }
+}
+
+/* Explicit theme overrides win over the media query in both directions. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page-bg: #0b1120;
+  --surface: #111827;
+  --surface-2: #0f1626;
+  --text: #e5e7eb;
+  --text-muted: #94a3b8;
+  --accent: #818cf8;
+  --accent-soft: #1e1b4b;
+  --danger: #f87171;
+  --danger-soft: #3f1d1d;
+  --ok: #4ade80;
+  --board-bg: #0f172a;
+  --board-line: #273349;
+  --board-thick: #64748b;
+  --cell-given: #e2e8f0;
+  --cell-user: #a5b4fc;
+  --cell-selected: #3730a3;
+  --cell-peer: #1e293b;
+  --cell-same: #4338ca;
+  --cell-highlight-digit: #312e81;
+  --cell-wrong-bg: #450a0a;
+  --cell-wrong-text: #fca5a5;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Prevent iOS text-size auto-inflation and pull-to-refresh/overscroll. */
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
+}
+
+/* Disable the double-tap-to-zoom and long-press callouts on controls. */
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Respect the home-indicator / notch safe areas. */
+.safe-area {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+}

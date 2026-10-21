@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sudoku Expert — Offline</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: #0b1120;
+        color: #e5e7eb;
+        text-align: center;
+        padding: 24px;
+      }
+      .card { max-width: 24rem; }
+      h1 { color: #818cf8; font-size: 1.5rem; margin-bottom: 0.5rem; }
+      p { color: #94a3b8; line-height: 1.5; }
+      button {
+        margin-top: 1.25rem;
+        background: #4f46e5;
+        color: #fff;
+        border: 0;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>You're offline</h1>
+      <p>
+        Sudoku Expert works offline once it has loaded. If you're seeing this, the app shell hasn't
+        been cached yet. Reconnect once, then it will be playable anywhere.
+      </p>
+      <button onclick="location.href='/'">Try again</button>
+    </div>
+  </body>
+</html>
