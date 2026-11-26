@@ -1,95 +1,68 @@
+import { type Geometry, type Grid } from "./grid";
+import { BEYOND_TIER, grade } from "./logic";
+import { countSolutions, shuffle, solve } from "./solver";
+
 /**
- * Puzzle generation.
- *
- * Strategy:
- *   1. Build a random complete solution via randomized backtracking.
- *   2. Remove clues one at a time, keeping a clue only if the puzzle still has
- *      a unique solution (minimal-dig). Minimal puzzles tend to be hard.
- *   3. Grade the result with the logical solver and accept it only if it meets
- *      the requested difficulty band and is fully solvable by logic (so hints
- *      can always explain a move).
+ * Puzzle generator. Up to ~1.5 s per 16x16 puzzle, so it runs at build
+ * time (`npm run generate:bank`), not in the browser.
  */
 
-import { CELL_COUNT } from './constants';
-import { cloneGrid, emptyGrid, stringifyGrid } from './grid';
-import { bandAtLeast, gradePuzzle } from './logicalSolver';
-import { countSolutions, solve } from './solver';
-import type { DifficultyBand, Grid, PuzzleRecord } from './types';
-
-/** Deterministic short id derived from the puzzle string (FNV-1a). */
-export function puzzleId(puzzle: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < puzzle.length; i++) {
-    hash ^= puzzle.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
+/** A random, complete, valid grid of the given geometry. */
+export function generateSolution(rng: () => number, geo: Geometry): Grid {
+  const { box, size, cells } = geo;
+  for (;;) {
+    const grid = new Array<number>(cells).fill(0);
+    // The diagonal boxes do not share rows/columns, so fill them freely first.
+    for (let d = 0; d < box; d++) {
+      const digits = shuffle(Array.from({ length: size }, (_, k) => k + 1), rng);
+      for (let k = 0; k < size; k++) {
+        const r = d * box + Math.floor(k / box);
+        const c = d * box + (k % box);
+        grid[r * size + c] = digits[k];
+      }
+    }
+    const r = solve(grid, { rng, maxNodes: 20_000 });
+    if (r.solution) return r.solution;
   }
-  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-/** Generate a random, fully solved board. */
-export function generateSolution(): Grid {
-  const solution = solve(emptyGrid(), true);
-  if (!solution) {
-    // Unreachable for an empty grid, but keep the type honest.
-    throw new Error('Failed to generate a solution grid');
-  }
-  return solution;
+export interface DigOptions {
+  /** Highest logic tier allowed (1-4), or BEYOND_TIER (5) for "anything with a unique solution". */
+  maxTier: number;
+  /** Stop removing clues at this count. */
+  minClues: number;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-/** Remove clues while preserving a unique solution. */
-export function digHoles(solution: Grid): Grid {
-  const puzzle = cloneGrid(solution);
-  const order = shuffle(Array.from({ length: CELL_COUNT }, (_, i) => i));
-  for (const pos of order) {
-    const backup = puzzle[pos];
-    if (backup === 0) continue;
-    puzzle[pos] = 0;
-    if (countSolutions(puzzle, 2) !== 1) {
-      puzzle[pos] = backup; // removal broke uniqueness — keep the clue
+/**
+ * Remove clues in symmetric pairs (cell i and its 180° partner) while the
+ * puzzle stays (a) uniquely solvable and (b) within maxTier.
+ */
+export function digPuzzle(solution: Grid, rng: () => number, opts: DigOptions): Grid {
+  const puzzle = solution.slice();
+  const cells = solution.length;
+  let clues = cells;
+  // For odd cell counts (81) the centre cell is its own partner; ceil() includes it once.
+  const order = shuffle(
+    Array.from({ length: Math.ceil(cells / 2) }, (_, i) => i),
+    rng,
+  );
+  for (const i of order) {
+    if (clues <= opts.minClues) break;
+    const j = cells - 1 - i;
+    const keep = [puzzle[i], puzzle[j]];
+    puzzle[i] = 0;
+    puzzle[j] = 0;
+    // A logic-solvable puzzle is always unique, so the cheap check is enough below tier 5.
+    const ok =
+      opts.maxTier < BEYOND_TIER ? grade(puzzle, opts.maxTier).solved : countSolutions(puzzle, 50_000) === 1;
+    if (ok) {
+      clues -= i === j ? 1 : 2;
+    } else {
+      puzzle[i] = keep[0];
+      puzzle[j] = keep[1];
     }
   }
   return puzzle;
 }
 
-export interface GenerateOptions {
-  minBand?: DifficultyBand;
-  maxAttempts?: number;
-}
-
-/**
- * Generate one validated puzzle meeting `minBand` (default `extreme`). Returns
- * `null` if no qualifying puzzle was produced within `maxAttempts`.
- */
-export function generatePuzzle(options: GenerateOptions = {}): PuzzleRecord | null {
-  const minBand = options.minBand ?? 'extreme';
-  const maxAttempts = options.maxAttempts ?? 80;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const solution = generateSolution();
-    const puzzle = digHoles(solution);
-    const report = gradePuzzle(puzzle);
-    if (report.solved && bandAtLeast(report.band, minBand)) {
-      const puzzleStr = stringifyGrid(puzzle);
-      return {
-        id: puzzleId(puzzleStr),
-        puzzle: puzzleStr,
-        solution: stringifyGrid(solution),
-        difficulty: {
-          band: report.band,
-          score: report.score,
-          hardestTechnique: report.hardestTechnique,
-        },
-        source: 'generated',
-      };
-    }
-  }
-  return null;
-}
+export const clueCount = (g: Grid): number => g.filter((v) => v !== 0).length;

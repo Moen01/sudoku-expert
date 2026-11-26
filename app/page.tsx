@@ -1,5 +1,5 @@
-import { SudokuGame } from '@/components/sudoku/SudokuGame';
+import { Game } from "@/components/sudoku/Game";
 
-export default function HomePage() {
-  return <SudokuGame />;
+export default function Home() {
+  return <Game />;
 }

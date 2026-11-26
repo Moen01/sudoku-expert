@@ -1,103 +1,93 @@
-'use client';
+"use client";
 
-import { memo, type CSSProperties } from 'react';
-import { SIZE } from '@/lib/sudoku/constants';
-import { notesToDigits } from '@/lib/game/selectors';
+import { memo } from "react";
+import { bit, symbolOf, type BoardSize } from "@/lib/sudoku/grid";
 
 export interface CellProps {
   index: number;
+  size: BoardSize;
   value: number;
+  notes: number;
   given: boolean;
-  notesMask: number;
-  isSelected: boolean;
-  isPeer: boolean;
-  isSameValue: boolean;
-  isWrong: boolean;
-  isConflict: boolean;
-  isHintReason: boolean;
-  isHintTarget: boolean;
-  onSelect: (index: number) => void;
+  selected: boolean;
+  peer: boolean;
+  sameValue: boolean;
+  conflict: boolean;
+  wrong: boolean;
+  /** Digit to emphasise inside the notes (the selected cell's value). */
+  noteFocus: number;
+  hinted: boolean;
+  onSelect: (i: number) => void;
 }
 
-const THIN = '1px solid var(--board-line)';
-const THICK = '2px solid var(--board-thick)';
+const NOTE_SLOTS: Record<BoardSize, number[]> = {
+  9: Array.from({ length: 9 }, (_, k) => k + 1),
+  16: Array.from({ length: 16 }, (_, k) => k + 1),
+};
 
-function borderStyle(index: number): CSSProperties {
-  const row = Math.floor(index / SIZE);
-  const col = index % SIZE;
-  return {
-    borderTop: row % 3 === 0 ? THICK : THIN,
-    borderLeft: col % 3 === 0 ? THICK : THIN,
-    borderRight: col === SIZE - 1 ? THICK : 'none',
-    borderBottom: row === SIZE - 1 ? THICK : 'none',
-  };
+function cellBackground(p: CellProps): string {
+  if (p.selected) return "bg-blue-300 dark:bg-sky-700";
+  if (p.conflict) return "bg-red-100 dark:bg-red-950";
+  if (p.hinted) return "bg-amber-100 dark:bg-amber-900/60";
+  if (p.sameValue) return "bg-blue-100 dark:bg-sky-900/70";
+  if (p.peer) return "bg-slate-100 dark:bg-slate-800";
+  return "bg-white dark:bg-slate-900";
 }
 
-function backgroundFor(props: CellProps): string {
-  // Hardcore mode: no row/column/box or matching-number assistance. Only the
-  // selected cell, hint highlights, and rule conflicts are shown.
-  if (props.isConflict || props.isWrong) return 'var(--cell-wrong-bg)';
-  if (props.isSelected) return 'var(--cell-selected)';
-  if (props.isHintReason || props.isHintTarget) return 'var(--cell-highlight-digit)';
-  return 'transparent';
+function textColor(p: CellProps): string {
+  if (p.wrong || (p.conflict && !p.given)) return "text-red-600 dark:text-red-400";
+  if (p.given) return "text-slate-900 dark:text-slate-100 font-bold";
+  return "text-blue-600 dark:text-sky-400 font-semibold";
 }
 
-function textColorFor(props: CellProps): string {
-  if (props.isWrong || props.isConflict) return 'var(--cell-wrong-text)';
-  if (props.given) return 'var(--cell-given)';
-  return 'var(--cell-user)';
-}
+function CellView(p: CellProps) {
+  const size = p.size;
+  const box = size === 9 ? 3 : 4;
+  const r = Math.floor(p.index / size);
+  const c = p.index % size;
+  // Thick lines between boxes, thin lines elsewhere.
+  const right = c === size - 1 ? "" : (c + 1) % box === 0 ? "border-r-2 border-r-slate-500 dark:border-r-slate-400" : "border-r border-r-slate-200 dark:border-r-slate-700";
+  const bottom = r === size - 1 ? "" : (r + 1) % box === 0 ? "border-b-2 border-b-slate-500 dark:border-b-slate-400" : "border-b border-b-slate-200 dark:border-b-slate-700";
 
-function CellComponent(props: CellProps) {
-  const { index, value, given, notesMask, onSelect } = props;
-  const digits = value === 0 ? notesToDigits(notesMask) : [];
+  const label = p.value
+    ? `Row ${r + 1}, column ${c + 1}, ${symbolOf(p.value)}${p.given ? ", given" : ""}`
+    : `Row ${r + 1}, column ${c + 1}, empty`;
 
   return (
     <button
       type="button"
-      aria-label={`Cell ${Math.floor(index / SIZE) + 1},${(index % SIZE) + 1}`}
-      onClick={() => onSelect(index)}
-      className="relative flex h-full w-full select-none items-center justify-center overflow-hidden"
-      style={{
-        minWidth: 0,
-        minHeight: 0,
-        ...borderStyle(index),
-        background: backgroundFor(props),
-        color: textColorFor(props),
-        fontWeight: given ? 700 : 500,
-        boxShadow: props.isHintTarget ? 'inset 0 0 0 2px var(--accent)' : undefined,
-        transition: 'background-color 90ms ease',
+      aria-label={label}
+      aria-pressed={p.selected}
+      onPointerDown={(e) => {
+        // pointerdown feels instant on touch; prevent the focus ring and the delayed click.
+        e.preventDefault();
+        p.onSelect(p.index);
       }}
+      onClick={() => p.onSelect(p.index)}
+      className={`relative flex aspect-square items-center justify-center p-0 leading-none outline-none ${right} ${bottom} ${cellBackground(p)}`}
     >
-      {value !== 0 ? (
-        <span style={{ fontSize: 'min(6vw, 1.7rem)', lineHeight: 1 }}>{value}</span>
-      ) : (
-        <div
-          className="grid h-full w-full"
-          style={{
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gridTemplateRows: 'repeat(3, 1fr)',
-            padding: '2px',
-          }}
-        >
-          {Array.from({ length: 9 }, (_, i) => i + 1).map((d) => (
+      {p.value ? (
+        <span className={`cell-value ${textColor(p)}`}>{symbolOf(p.value)}</span>
+      ) : p.notes ? (
+        <span className={`grid h-full w-full ${size === 9 ? "grid-cols-3 grid-rows-3" : "grid-cols-4 grid-rows-4"}`}>
+          {NOTE_SLOTS[size].map((v) => (
             <span
-              key={d}
-              className="flex items-center justify-center"
-              style={{
-                fontSize: 'min(2.4vw, 0.62rem)',
-                lineHeight: 1,
-                color: 'var(--text-muted)',
-                visibility: digits.includes(d) ? 'visible' : 'hidden',
-              }}
+              key={v}
+              className={`cell-note flex items-center justify-center ${
+                p.notes & bit(v)
+                  ? v === p.noteFocus
+                    ? "font-bold text-blue-700 dark:text-sky-300"
+                    : "text-slate-500 dark:text-slate-400"
+                  : "invisible"
+              }`}
             >
-              {d}
+              {symbolOf(v)}
             </span>
           ))}
-        </div>
-      )}
+        </span>
+      ) : null}
     </button>
   );
 }
 
-export const Cell = memo(CellComponent);
+export const Cell = memo(CellView);

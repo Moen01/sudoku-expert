@@ -1,107 +1,108 @@
 /*
- * Service worker for Sudoku Expert.
+ * Service worker: caches APP FILES only. Saved games live in localStorage
+ * and are never touched here, so clearing or updating this cache is safe.
  *
- * Responsibility: cache the application shell and static assets so the game
- * loads and plays fully offline. It deliberately NEVER touches localStorage —
- * saved games, stats and the puzzle queue live there and are owned by the app,
- * completely separate from this HTTP cache. Bump CACHE_VERSION to invalidate
- * old asset caches when shipping a breaking change.
+ * - Page (navigation): network first, cache as fallback  -> updates arrive on the next online visit.
+ * - /_next/static/*: cache first (file names contain a content hash, so they never change).
+ * - Other same-origin GET (icons, manifest): stale-while-revalidate.
  */
+const CACHE = "sudoku16-v1";
+const MAX_STATIC_ENTRIES = 200;
+const PRECACHE = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
-const CACHE_VERSION = 'v1';
-const SHELL_CACHE = `sudoku-shell-${CACHE_VERSION}`;
-const RUNTIME_CACHE = `sudoku-runtime-${CACHE_VERSION}`;
-
-const PRECACHE_URLS = [
-  '/',
-  '/offline.html',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png',
-];
-
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    (async () => {
-      const cache = await caches.open(SHELL_CACHE);
-      await cache.addAll(PRECACHE_URLS);
-      await self.skipWaiting();
-    })(),
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(PRECACHE))
+      .then(() => self.skipWaiting()),
   );
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys
-          .filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE)
-          .map((key) => caches.delete(key)),
-      );
-      await self.clients.claim();
-    })(),
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
   );
 });
 
-function isCacheableAsset(url) {
-  return (
-    url.pathname.startsWith('/_next/') ||
-    url.pathname.startsWith('/icons/') ||
-    /\.(?:js|css|json|woff2?|png|svg|webmanifest)$/.test(url.pathname)
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "CACHE_URLS" || !Array.isArray(event.data.urls)) return;
+  const urls = event.data.urls.filter((u) => typeof u === "string" && new URL(u).origin === self.location.origin);
+  event.waitUntil(
+    caches.open(CACHE).then((c) =>
+      Promise.all(
+        urls.map((u) =>
+          c.match(u).then((hit) => hit || fetch(u).then((res) => (res.ok ? c.put(u, res) : undefined)).catch(() => undefined)),
+        ),
+      ),
+    ),
   );
+});
+
+async function trim(cache) {
+  const keys = await cache.keys();
+  const statics = keys.filter((r) => new URL(r.url).pathname.startsWith("/_next/static/"));
+  for (const r of statics.slice(0, Math.max(0, statics.length - MAX_STATIC_ENTRIES))) await cache.delete(r);
 }
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
 
-  const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // ignore cross-origin
-
-  // Navigations: network-first so updates land immediately, with an offline
-  // fallback to the cached shell.
-  if (request.mode === 'navigate') {
+  if (req.mode === "navigate") {
     event.respondWith(
-      (async () => {
-        try {
-          const network = await fetch(request);
-          const cache = await caches.open(SHELL_CACHE);
-          cache.put('/', network.clone()).catch(() => {});
-          return network;
-        } catch {
-          const cache = await caches.open(SHELL_CACHE);
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("/", copy));
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cached = (await caches.match(req)) || (await caches.match("/"));
           return (
-            (await cache.match('/')) ||
-            (await cache.match('/offline.html')) ||
-            Response.error()
+            cached ||
+            new Response("<h1>Offline</h1><p>Open Sudoku 16 once while online so it can be saved for offline play.</p>", {
+              headers: { "Content-Type": "text/html; charset=utf-8" },
+            })
           );
-        }
-      })(),
+        }),
     );
     return;
   }
 
-  // Static assets: cache-first, filling the runtime cache on demand.
-  event.respondWith(
-    (async () => {
-      const cached = await caches.match(request);
-      if (cached) return cached;
-      try {
-        const network = await fetch(request);
-        if (network.ok && isCacheableAsset(url)) {
-          const cache = await caches.open(RUNTIME_CACHE);
-          cache.put(request, network.clone());
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.open(CACHE).then(async (c) => {
+        const hit = await c.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) {
+          await c.put(req, res.clone());
+          trim(c);
         }
-        return network;
-      } catch {
-        return cached || Response.error();
-      }
-    })(),
-  );
-});
+        return res;
+      }),
+    );
+    return;
+  }
 
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  event.respondWith(
+    caches.open(CACHE).then(async (c) => {
+      const hit = await c.match(req);
+      const network = fetch(req)
+        .then((res) => {
+          if (res.ok) c.put(req, res.clone());
+          return res;
+        })
+        .catch(() => hit);
+      return hit || network;
+    }),
+  );
 });
