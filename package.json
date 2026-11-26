@@ -1,38 +1,40 @@
 {
-  "name": "sudoku-expert",
+  "name": "sudoku-16",
   "version": "1.0.0",
   "private": true,
-  "description": "A polished, offline-capable Extreme Sudoku PWA built with Next.js, optimized for iPhone.",
+  "description": "16x16 Sudoku (1-9, A-G) with Easy, Medium, Hard and Extreme modes. Offline-capable PWA.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npx serve out",
-    "lint": "next lint",
+    "start": "python3 -m http.server 4173 --directory out",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:puzzles": "tsx scripts/generate-puzzles.ts",
-    "generate:icons": "tsx scripts/generate-icons.ts"
+    "generate:bank": "tsx scripts/generate-bank.ts",
+    "generate:icons": "tsx scripts/generate-icons.ts",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "next": "^15.5.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "next": "15.5.29",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
-    "@testing-library/dom": "^10.4.2",
-    "@testing-library/react": "^16.3.3",
-    "@types/node": "^22.10.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.0",
-    "jsdom": "^25.0.1",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.0",
-    "vitest": "^2.1.8"
+    "@eslint/eslintrc": "3.3.1",
+    "@types/node": "22.18.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "autoprefixer": "10.4.21",
+    "eslint": "9.37.0",
+    "eslint-config-next": "15.5.29",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.18",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

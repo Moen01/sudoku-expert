@@ -1,9 +1,3 @@
-# Netlify configuration for Sudoku Expert.
-#
-# This is a fully static Next.js app (`output: 'export'`), so Netlify just needs
-# to run the build and publish the generated `out/` directory. No Next.js runtime
-# plugin or serverless functions are required.
-
 [build]
   command = "npm run build"
   publish = "out"
@@ -11,14 +5,18 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# The service worker must never be cached by the CDN, otherwise users can get
-# stuck on a stale worker that refuses to update.
+# The service worker must never be cached by the browser HTTP cache,
+# otherwise users can get stuck on an old app version.
 [[headers]]
   for = "/sw.js"
   [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
-# Hashed Next.js assets are immutable and safe to cache aggressively.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
